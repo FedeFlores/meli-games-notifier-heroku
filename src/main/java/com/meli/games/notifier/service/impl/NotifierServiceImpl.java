@@ -39,13 +39,27 @@ public class NotifierServiceImpl implements NotifierService {
     @Value("#{'${blacklist}'.split(',')}")
     private List<String> blacklist;
 
+    @Value("${blacklistLog}")
+    private String blacklistLog;
+
     @Override
     public void notifyNewListings() {
         logger.info("Getting items with keywords: {}", keywords.toString());
         List<ResultItem> items = getListings(keywords);
         logger.info("search returned {} items", items.size());
         logger.info("filtering with blacklist: {}", blacklist.toString());
-        items = items.stream().filter(item -> blacklist.stream().noneMatch(word -> StringUtils.containsIgnoreCase(item.getTitle(), word))).collect(Collectors.toList());
+        if ("true".equalsIgnoreCase(blacklistLog)) {
+            items = items.stream().filter(item -> {
+                if (blacklist.stream().noneMatch(word -> StringUtils.containsIgnoreCase(item.getTitle(), word))){
+                    return true;
+                } else {
+                    logger.info("blacklisted item: {}", item.getTitle());
+                    return false;
+                }
+            }).collect(Collectors.toList());
+        } else {
+            items = items.stream().filter(item -> blacklist.stream().noneMatch(word -> StringUtils.containsIgnoreCase(item.getTitle(), word))).collect(Collectors.toList());
+        }
         logger.info("{} items after blacklisting", items.size());
         logger.info("removing duplicates and filtering new items");
         items = items.stream().distinct().filter(item -> !itemRepository.existsById(item.getId())).collect(Collectors.toList());
@@ -105,7 +119,7 @@ public class NotifierServiceImpl implements NotifierService {
     private void sendTelegramNotifications(List<ResultItem> newItems) {
         for (ResultItem item : newItems) {
             StringBuilder sb = new StringBuilder(item.getTitle())
-                    .append("\n").append("$").append(String.valueOf(item.getPrice())).append("\n")
+                    .append("\n").append("$").append(Double.valueOf(item.getPrice()).intValue()).append("\n")
                     .append(item.getLink());
             try {
                 telegramSender.sendMessage(sb.toString());
