@@ -4,4 +4,6 @@ public interface NotifierService {
 
     void notifyNewListings();
 
+	void cleanDbIfFull();
+
 }

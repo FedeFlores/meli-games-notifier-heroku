@@ -1,5 +1,6 @@
 package com.meli.games.notifier.service.impl;
 
+import com.meli.games.notifier.entity.CategoriesEnum;
 import com.meli.games.notifier.entity.ResultItem;
 import com.meli.games.notifier.repository.ResultItemRepository;
 import com.meli.games.notifier.service.NotifierService;
@@ -33,38 +34,27 @@ public class NotifierServiceImpl implements NotifierService {
     @Autowired
     private TelegramSender telegramSender;
 
-    @Value("#{'${keywords}'.split(',')}")
-    private List<String> keywords;
+    @Value("#{'${consVideoKeywords}'.split(',')}")
+    private List<String> consVideoKeywords;
+    
+    @Value("#{'${sinCatKeywords}'.split(',')}")
+    private List<String> sinCatKeywords;
 
     @Value("#{'${blacklist}'.split(',')}")
     private List<String> blacklist;
 
-    @Value("${blacklistLog}")
-    private String blacklistLog;
-
     @Override
     public void notifyNewListings() {
-        logger.info("Getting items with keywords: {}", keywords.toString());
-        List<ResultItem> items = getListings(keywords);
+        logger.info("Getting items with keywords: {}", consVideoKeywords.toString(), sinCatKeywords.toString());
+        List<ResultItem> items = getListings();
         logger.info("search returned {} items", items.size());
         logger.info("filtering with blacklist: {}", blacklist.toString());
-        if ("true".equalsIgnoreCase(blacklistLog)) {
-            items = items.stream().filter(item -> {
-                if (blacklist.stream().noneMatch(word -> StringUtils.containsIgnoreCase(item.getTitle(), word))){
-                    return true;
-                } else {
-                    logger.info("blacklisted item: {}", item.getTitle());
-                    return false;
-                }
-            }).collect(Collectors.toList());
-        } else {
-            items = items.stream().filter(item -> blacklist.stream().noneMatch(word -> StringUtils.containsIgnoreCase(item.getTitle(), word))).collect(Collectors.toList());
-        }
+        items = items.stream().filter(item -> blacklist.stream().noneMatch(word -> StringUtils.containsIgnoreCase(item.getTitle(), word))).collect(Collectors.toList());
         logger.info("{} items after blacklisting", items.size());
         logger.info("removing duplicates and filtering new items");
         items = items.stream().distinct().filter(item -> !itemRepository.existsById(item.getId())).collect(Collectors.toList());
         if (!items.isEmpty()){
-            logger.info("{} NEW ITEMS!!! Sending telegram notifications", items.size());
+            logger.info("{} NEW ITEMS! Sending telegram notifications", items.size());
             sendTelegramNotifications(items);
             items = items.stream().filter(item -> !item.getError()).collect(Collectors.toList());
             logger.info("{} notifications sent", items.size());
@@ -74,18 +64,22 @@ public class NotifierServiceImpl implements NotifierService {
         }
     }
 
-    private List<ResultItem> getListings(List<String> keywords) {
+    private List<ResultItem> getListings() {
         List<ResultItem> items = new ArrayList<>();
-        for (String keyword : keywords) {
-            List<ResultItem> results = searchByKeyword(keyword);
+        for (String keyword : consVideoKeywords) {
+            List<ResultItem> results = searchByKeyword(keyword, CategoriesEnum.CONSOLASYVIDEOJUEGOS);
+            items.addAll(results);
+        }
+        for (String keyword : sinCatKeywords) {
+            List<ResultItem> results = searchByKeyword(keyword, CategoriesEnum.SINCATEGORIA);
             items.addAll(results);
         }
         return items;
     }
 
-    private List<ResultItem> searchByKeyword(String keyword) {
+    private List<ResultItem> searchByKeyword(String keyword, CategoriesEnum categoria) {
         Integer offset = 0;
-        MeliSearchResponse response = meliSearch.meliSearchByKeyword(keyword, offset);
+        MeliSearchResponse response = meliSearch.meliSearchByKeyword(keyword, offset, categoria);
         if (response == null) {
             return new ArrayList<>();
         }
@@ -93,7 +87,7 @@ public class NotifierServiceImpl implements NotifierService {
         offset = offset + 50;
         List<ResultItem> items = responseToItems(response);
         while (offset < total) {
-            response = meliSearch.meliSearchByKeyword(keyword, offset);
+            response = meliSearch.meliSearchByKeyword(keyword, offset, categoria);
             if (response == null) {
                 break;
             }
@@ -119,7 +113,7 @@ public class NotifierServiceImpl implements NotifierService {
     private void sendTelegramNotifications(List<ResultItem> newItems) {
         for (ResultItem item : newItems) {
             StringBuilder sb = new StringBuilder(item.getTitle())
-                    .append("\n").append("$").append(Double.valueOf(item.getPrice()).intValue()).append("\n")
+                    .append("\n").append("$").append(String.valueOf(item.getPrice())).append("\n")
                     .append(item.getLink());
             try {
                 telegramSender.sendMessage(sb.toString());
@@ -130,5 +124,19 @@ public class NotifierServiceImpl implements NotifierService {
             }
         }
     }
+
+	@Override
+	public void cleanDbIfFull() {
+        logger.info("Checking database size");
+        Long dbSize = itemRepository.count();
+        logger.info("Found " + dbSize + " items");
+        if (dbSize > 8000L) {
+        	logger.info("Cleaning Database");
+        	itemRepository.cleanOldRecords();
+        	logger.info("Database cleaned");
+        } else {
+        	logger.info("Database is healthy");
+        }
+	}
 
 }
