@@ -27,5 +27,12 @@ public class ScheduledTasks {
         log.info("Starting process at: {}", dateFormat.format(new Date()));
         notifierService.notifyNewListings();
     }
+    
+    @Scheduled(fixedDelayString = "${dbCleanDelay}")
+    public void cleanDB() {
+        dateFormat.setTimeZone(TimeZone.getTimeZone("America/Argentina/Buenos_Aires"));
+        log.info("Checking DB health at: {}", dateFormat.format(new Date()));
+        notifierService.cleanDbIfFull();
+    }
 
 }

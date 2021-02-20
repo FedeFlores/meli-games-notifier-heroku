@@ -1,9 +1,13 @@
 package com.meli.games.notifier.entity;
 
 
+import java.util.Date;
+import java.util.Objects;
+
 import javax.persistence.Entity;
 import javax.persistence.Id;
-import java.util.Objects;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
 
 @Entity
 public class ResultItem {
@@ -14,6 +18,8 @@ public class ResultItem {
     private Double price;
     private String link;
     private Boolean error;
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date timestamp;
 
     public ResultItem() {
     }
@@ -81,5 +87,12 @@ public class ResultItem {
                 '}';
     }
 
+	public Date getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(Date timestamp) {
+		this.timestamp = timestamp;
+	}
 
 }
