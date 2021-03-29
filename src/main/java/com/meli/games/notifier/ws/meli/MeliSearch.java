@@ -4,6 +4,6 @@ import com.meli.games.notifier.ws.meli.model.MeliSearchResponse;
 
 public interface MeliSearch {
 
-    MeliSearchResponse meliSearchByKeyword(String keyword, Integer offset);
+    MeliSearchResponse meliSearchByKeyword(String keyword, Integer offset, String token);
 
 }

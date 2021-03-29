@@ -43,9 +43,9 @@ public class NotifierServiceImpl implements NotifierService {
     private String blacklistLog;
 
     @Override
-    public void notifyNewListings() {
+    public void notifyNewListings(String token) {
         logger.info("Getting items with keywords: {}", keywords.toString());
-        List<ResultItem> items = getListings(keywords);
+        List<ResultItem> items = getListings(keywords, token);
         logger.info("search returned {} items", items.size());
         logger.info("filtering with blacklist: {}", blacklist.toString());
         if ("true".equalsIgnoreCase(blacklistLog)) {
@@ -74,18 +74,18 @@ public class NotifierServiceImpl implements NotifierService {
         }
     }
 
-    private List<ResultItem> getListings(List<String> keywords) {
+    private List<ResultItem> getListings(List<String> keywords, String token) {
         List<ResultItem> items = new ArrayList<>();
         for (String keyword : keywords) {
-            List<ResultItem> results = searchByKeyword(keyword);
+            List<ResultItem> results = searchByKeyword(keyword, token);
             items.addAll(results);
         }
         return items;
     }
 
-    private List<ResultItem> searchByKeyword(String keyword) {
+    private List<ResultItem> searchByKeyword(String keyword, String token) {
         Integer offset = 0;
-        MeliSearchResponse response = meliSearch.meliSearchByKeyword(keyword, offset);
+        MeliSearchResponse response = meliSearch.meliSearchByKeyword(keyword, offset, token);
         if (response == null) {
             return new ArrayList<>();
         }
@@ -93,7 +93,7 @@ public class NotifierServiceImpl implements NotifierService {
         offset = offset + 50;
         List<ResultItem> items = responseToItems(response);
         while (offset < total) {
-            response = meliSearch.meliSearchByKeyword(keyword, offset);
+            response = meliSearch.meliSearchByKeyword(keyword, offset, token);
             if (response == null) {
                 break;
             }
